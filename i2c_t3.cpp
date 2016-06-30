@@ -1827,5 +1827,8 @@ i2c_t3 Wire  = i2c_t3(0);       // I2C0
 #if I2C_BUS_NUM >= 2
     i2c_t3 Wire1 = i2c_t3(1);   // I2C1
 #endif
+#if I2C_BUS_NUM >= 3
+    i2c_t3 Wire2 = i2c_t3(2);   // I2C2
+#endif
 
 #endif // i2c_t3
