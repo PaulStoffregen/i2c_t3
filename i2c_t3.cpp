@@ -1362,7 +1362,7 @@ void i2c_isr_handler(struct i2cStruct* i2c, uint8_t bus)
 
     status = *(i2c->S);
     c1 = *(i2c->C1);
-    #if (defined(__MKL26Z64__) || defined(__MK20DX128__) || defined(__MK20DX256__) ) 
+    #if (defined(__MKL26Z64__) || defined(__MK64FX512__) || defined(__MK66FX1M0__) ) 
         uint8_t flt = *(i2c->FLT); // LC only //TODO: 3.4 & 3.5 have stop detect interrupt
     #endif
 
