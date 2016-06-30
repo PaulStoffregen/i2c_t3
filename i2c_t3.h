@@ -2,6 +2,9 @@
     ------------------------------------------------------------------------------------------------------
     i2c_t3 - I2C library for Teensy 3.0/3.1/LC
 
+	- (v?) Initial Mods 29July16 by Tim (defragster at outlook.com) for T 3.4/3.5
+            - Wire1: I2C1_SCL[PTC10(p37)] / I2C1 I2C1_SDA[PTC11(p38)]   >> I2C_PINS_37_38	ALT=2
+            - Wire2: I2C2_SCL[PTA12(p4)]	/ I2C2 I2C2_SDA[PTA13(p3)]  >> I2C_PINS_3_4		ALT=5
     - (v8) Modified 02Apr15 by Brian (nox771 at gmail.com)
         - added support for Teensy LC:
             - fully supported (Master/Slave modes, IMM/ISR/DMA operation)
@@ -131,9 +134,13 @@
 //
 // I2C_BUS_ENABLE 1   (enable I2C0 only)
 // I2C_BUS_ENABLE 2   (enable I2C0 & I2C1)
+// I2C_BUS_ENABLE 3   (enable I2C0 & I2C1 & I2C2) // 3.4/3.5
 //
+#if (defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MKL26Z64__)) // 3.0/3.1-3.2/LC
 #define I2C_BUS_ENABLE 2
-
+#elif (defined(__MK64FX512__) || defined(__MK66FX1M0__)) // 3.4/3.5
+#define I2C_BUS_ENABLE 3
+#endif
 // ------------------------------------------------------------------------------------------------------
 // Tx/Rx buffer sizes - modify these as needed.  Buffers should be large enough to hold:
 //                      Target Addr + Target Command (varies with protocol) + Data payload
@@ -148,6 +155,7 @@
 //
 //#define I2C0_INTR_FLAG_PIN 6
 //#define I2C1_INTR_FLAG_PIN 7
+//#define I2C2_INTR_FLAG_PIN TODO // 3.4/3.5
 
 // ------------------------------------------------------------------------------------------------------
 // Auto retry - uncomment to make the library automatically call resetBus() if it has a timeout while
@@ -168,8 +176,10 @@
 // ------------------------------------------------------------------------------------------------------
 // Set number of enabled buses
 //
-#if (defined(__MK20DX256__) || defined(__MKL26Z64__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)) && (I2C_BUS_ENABLE >= 2) // 3.1/LC/3.4/3.5
+#if (defined(__MK20DX256__) || defined(__MKL26Z64__) ) && (I2C_BUS_ENABLE >= 2) // 3.1/LC
     #define I2C_BUS_NUM 2
+#elif (defined(__MK64FX512__) || defined(__MK66FX1M0__)) && (I2C_BUS_ENABLE >= 3) // 3.4/3.5
+    #define I2C_BUS_NUM 3
 #else
     #define I2C_BUS_NUM 1
 #endif
@@ -208,6 +218,21 @@
     #define I2C1_INTR_FLAG_OFF  do{}while(0)
 #endif
 
+#if defined(I2C2_INTR_FLAG_PIN)	// TODO // 3.4/3.5
+    #define I2C2_INTR_FLAG_INIT do             \
+    {                                          \
+        pinMode(I2C2_INTR_FLAG_PIN, OUTPUT);   \
+        digitalWrite(I2C2_INTR_FLAG_PIN, LOW); \
+    } while(0)
+
+    #define I2C2_INTR_FLAG_ON   do {digitalWrite(I2C2_INTR_FLAG_PIN, HIGH);} while(0)
+    #define I2C2_INTR_FLAG_OFF  do {digitalWrite(I2C2_INTR_FLAG_PIN, LOW);} while(0)
+#else
+    #define I2C2_INTR_FLAG_INIT do{}while(0)
+    #define I2C2_INTR_FLAG_ON   do{}while(0)
+    #define I2C2_INTR_FLAG_OFF  do{}while(0)
+#endif
+
 
 // ------------------------------------------------------------------------------------------------------
 // Function argument enums
@@ -217,8 +242,11 @@ enum i2c_mode     {I2C_MASTER, I2C_SLAVE};
 enum i2c_pins     {I2C_PINS_18_19,          // 19 SCL  18 SDA
                    I2C_PINS_16_17,          // 16 SCL  17 SDA
                    I2C_PINS_22_23,          // 22 SCL  23 SDA  (LC only)
-                   I2C_PINS_29_30,          // 29 SCL  30 SDA  (3.1 only)
-                   I2C_PINS_26_31};         // 26 SCL  31 SDA  (3.1 only)
+                   I2C_PINS_29_30,          // 29 SCL  30 SDA  (3.1 only) >I2C1
+                   I2C_PINS_26_31,			// 26 SCL  31 SDA  (3.1 only) >I2C1
+                   I2C_PINS_37_38,			// 37 SCL  38 SDA  (3.4/3.5 only) >I2C1
+                   I2C_PINS_3_4 			// 4 SCL   3  SDA  (3.4/3.5 only) >I2C2
+                   };         
 enum i2c_pullup   {I2C_PULLUP_EXT, I2C_PULLUP_INT};
 enum i2c_rate     {I2C_RATE_100,
                    I2C_RATE_200,
@@ -299,6 +327,7 @@ struct i2cStruct
 //
 extern "C" void i2c0_isr(void);
 extern "C" void i2c1_isr(void);
+extern "C" void i2c2_isr(void);
 extern "C" void i2c_isr_handler(struct i2cStruct* i2c, uint8_t bus);
 
 class i2c_t3 : public Stream
@@ -312,11 +341,12 @@ private:
     // Primary I2C ISR (I2C0)
     //
     friend void i2c0_isr(void);
+    friend void i2c2_isr(void);
     friend void i2c_isr_handler(struct i2cStruct* i2c, uint8_t bus);
     //
     // Slave STOP detection (I2C0) - 3.0/3.1 only
     //
-    #if (defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__))
+    #if (defined(__MK20DX128__) || defined(__MK20DX256__) ) //|| defined(__MK64FX512__) || defined(__MK66FX1M0__))
 // TODO: 3.4 & 3.5 have stop interrupt - this pin change workaround is probably not needed
         static void sda0_rising_isr(void);
         static void sda_rising_isr_handler(struct i2cStruct* i2c, uint8_t bus);
@@ -330,11 +360,12 @@ private:
         //
         // Slave STOP detection (I2C1) - 3.1 only
         //
-        #if defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)
+        #if defined(__MK20DX256__) // || defined(__MK64FX512__) || defined(__MK66FX1M0__)
 // TODO: 3.4 & 3.5 have stop interrupt - this pin change workaround is probably not needed
             static void sda1_rising_isr(void);
         #endif
     #endif
+
 
 public:
     //
@@ -360,14 +391,17 @@ public:
     //
     // Initialize I2C (Master) - initializes I2C as Master mode, external pullups, 100kHz rate
     //                         - pins 18/19 (Wire), pins 29/30 (Wire1 on 3.1), pins 22/23 (Wire1 on LC)
+    //                         - pins 37/38 (Wire1 on 3.4/3.5), pins 4/3 (Wire2 on 3.4/3.5)
     // return: none
     //
     inline void begin()
     {
         #if defined(__MKL26Z64__)
             begin_(i2c, bus, I2C_MASTER, 0, 0, ((bus == 0) ? I2C_PINS_18_19 : I2C_PINS_22_23), I2C_PULLUP_EXT, I2C_RATE_100, I2C_OP_MODE_ISR); // LC
-        #else
+        #elif (defined(__MK20DX128__) || defined(__MK20DX256__) )
             begin_(i2c, bus, I2C_MASTER, 0, 0, ((bus == 0) ? I2C_PINS_18_19 : I2C_PINS_29_30), I2C_PULLUP_EXT, I2C_RATE_100, I2C_OP_MODE_ISR); // 3.0/3.1
+		#elif (defined(__MK64FX512__) || defined(__MK66FX1M0__))
+            begin_(i2c, bus, I2C_MASTER, 0, 0, ((bus == 0) ? I2C_PINS_18_19 : ((bus == 1) ? I2C_PINS_37_38 : I2C_PINS_3_4)), I2C_PULLUP_EXT, I2C_RATE_100, I2C_OP_MODE_ISR); // 3.4/3.5
         #endif
     }
     //
@@ -381,16 +415,20 @@ public:
     {
         #if defined(__MKL26Z64__)
             begin_(i2c, bus, I2C_SLAVE, (uint8_t)address, 0, ((bus == 0) ? I2C_PINS_18_19 : I2C_PINS_22_23), I2C_PULLUP_EXT, I2C_RATE_100, I2C_OP_MODE_ISR); // LC
-        #else
+		#elif (defined(__MK20DX128__) || defined(__MK20DX256__) )
             begin_(i2c, bus, I2C_SLAVE, (uint8_t)address, 0, ((bus == 0) ? I2C_PINS_18_19 : I2C_PINS_29_30), I2C_PULLUP_EXT, I2C_RATE_100, I2C_OP_MODE_ISR); // 3.0/3.1
+		#elif (defined(__MK64FX512__) || defined(__MK66FX1M0__))
+            begin_(i2c, bus, I2C_SLAVE, (uint8_t)address, 0, ((bus == 0) ? I2C_PINS_18_19 : ((bus == 1) ? I2C_PINS_37_38 : I2C_PINS_3_4)), I2C_PULLUP_EXT, I2C_RATE_100, I2C_OP_MODE_ISR); // 3.4/3.5
         #endif
     }
     inline void begin(uint8_t address)
     {
         #if defined(__MKL26Z64__)
             begin_(i2c, bus, I2C_SLAVE, address, 0, ((bus == 0) ? I2C_PINS_18_19 : I2C_PINS_22_23), I2C_PULLUP_EXT, I2C_RATE_100, I2C_OP_MODE_ISR); // LC
-        #else
+		#elif (defined(__MK20DX128__) || defined(__MK20DX256__) )
             begin_(i2c, bus, I2C_SLAVE, address, 0, ((bus == 0) ? I2C_PINS_18_19 : I2C_PINS_29_30), I2C_PULLUP_EXT, I2C_RATE_100, I2C_OP_MODE_ISR); // 3.0/3.1
+		#elif (defined(__MK64FX512__) || defined(__MK66FX1M0__))
+            begin_(i2c, bus, I2C_SLAVE, address, 0, ((bus == 0) ? I2C_PINS_18_19 : ((bus == 1) ? I2C_PINS_37_38 : I2C_PINS_3_4)), I2C_PULLUP_EXT, I2C_RATE_100, I2C_OP_MODE_ISR); // 3.4/3.5
         #endif
     }
     //
@@ -803,7 +841,10 @@ public:
 };
 
 extern i2c_t3 Wire;
-#if I2C_BUS_NUM >= 2
+#if I2C_BUS_NUM >= 3
+    extern i2c_t3 Wire2;
+	extern i2c_t3 Wire1;
+#elif I2C_BUS_NUM >= 2
     extern i2c_t3 Wire1;
 #endif
 
