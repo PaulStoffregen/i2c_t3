@@ -1673,7 +1673,7 @@ void i2c_isr_handler(struct i2cStruct* i2c, uint8_t bus)
                     else if(i2c->currentPins == I2C_PINS_26_31)
                         attachInterrupt(31, i2c_t3::sda1_rising_isr, RISING);
                     #endif
-                #elif defined(__MKL26Z64__)
+                #elif (defined(__MKL26Z64__) || defined(__MK64FX512__) || defined(__MK66FX1M0__) )
 //TODO: 3.4 & 3.5 have stop detect interrupt
                     *(i2c->FLT) |= I2C_FLT_STOPIE; // enable STOP intr for LC
                 #endif
@@ -1706,7 +1706,7 @@ void i2c_isr_handler(struct i2cStruct* i2c, uint8_t bus)
                 i2c->currentStatus = I2C_WAITING;
             }
         }
-        #if defined(__MKL26Z64__) // LC
+        #if (defined(__MKL26Z64__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)) // LC
 //TODO: 3.4 & 3.5 have stop detect interrupt
         else if(flt & I2C_FLT_STOPF) // STOP detected (LC only)
         {
@@ -1740,7 +1740,7 @@ void i2c_isr_handler(struct i2cStruct* i2c, uint8_t bus)
                 else if(i2c->currentPins == I2C_PINS_26_31)
                     attachInterrupt(31, i2c_t3::sda1_rising_isr, RISING);
                 #endif
-            #elif defined(__MKL26Z64__)
+            #elif ( defined(__MKL26Z64__) || defined(__MK64FX512__) || defined(__MK66FX1M0__))
 //TODO: 3.4 & 3.5 have stop detect interrupt
                 *(i2c->FLT) |= I2C_FLT_STOPIE; // enable STOP intr
             #endif
