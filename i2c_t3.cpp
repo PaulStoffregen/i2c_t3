@@ -1640,6 +1640,9 @@ i2c_t3 Wire  = i2c_t3(0);       // I2C0
     i2c_t3 Wire3 = i2c_t3(3);   // I2C3
 #endif
 
+#else
+#error This board is not supported.
+
 #endif // i2c_t3
 
 /*
